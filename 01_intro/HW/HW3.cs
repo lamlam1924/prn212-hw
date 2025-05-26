@@ -129,8 +129,13 @@ namespace TaskScheduler
                 }
             ));
             
+<<<<<<< HEAD
             // Create a cancellation token that will cancel after 10 seconds
             var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+=======
+            // Create a cancellation token that will cancel after 20 seconds
+            var cts = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+>>>>>>> upstream/main
             
             // Or allow the user to cancel with a key press
             Console.WriteLine("Press any key to stop the scheduler...");
