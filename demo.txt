@@ -1,426 +1,251 @@
 using System;
-using System.Collections;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
 
-namespace LibraryManagementSystem
+namespace DesignPatternsDemo
 {
-    // ======== BASIC ASSIGNMENT ========
-
-    public abstract class LibraryItem
+    // The prototype abstract class
+    public abstract class Car 
     {
-        public int Id { get; set; }
-        public string Title { get; set; }
-        public int PublicationYear { get; set; }
-
-        public LibraryItem(int id, string title, int publicationYear)
+        protected int basePrice = 0, onRoadPrice = 0;
+        
+        public string ModelName { get; set; }
+        
+        public int BasePrice
         {
-            Id = id;
-            Title = title;
-            PublicationYear = publicationYear;
+            set => basePrice = value;
+            get => basePrice;
         }
-
-        public abstract void DisplayInfo();
-
-        public virtual decimal CalculateLateReturnFee(int daysLate)
+        
+        public int OnRoadPrice
         {
-            return daysLate * 0.50m;
+            set => onRoadPrice = value;
+            get => onRoadPrice;
+        }
+        
+        // Generate a random additional price for demo purposes
+        public static int SetAdditionalPrice()
+        {
+            Random random = new Random();
+            int additionalPrice = random.Next(200_000, 500_000);
+            return additionalPrice;
+        }
+        
+        // Abstract Clone method
+        public abstract Car Clone();
+    }
+    
+    // Concrete prototype class
+    public class Mustang : Car 
+    {
+        public Mustang(string model)
+        {
+            ModelName = model;
+            BasePrice = 200_000;
+        }
+        
+        // Creating a shallow copy and returning it
+        public override Car Clone() => this.MemberwiseClone() as Mustang;
+    }
+    
+    // Another concrete prototype class
+    public class Bentley : Car
+    {
+        public Bentley(string model)
+        {
+            ModelName = model;
+            BasePrice = 300_000;
+        }
+        
+        // Creating a shallow copy and returning it
+        public override Car Clone() => this.MemberwiseClone() as Bentley;
+    }
+    
+    // A class with deep copy requirements
+    public class Vehicle : ICloneable
+    {
+        public string Make { get; set; }
+        public string Model { get; set; }
+        public Engine Engine { get; set; }
+        public DateTime ManufactureDate { get; set; }
+        
+        public Vehicle(string make, string model, Engine engine)
+        {
+            Make = make;
+            Model = model;
+            Engine = engine;
+            ManufactureDate = DateTime.Now;
+        }
+        
+        // Shallow copy - engine will be shared
+        public Vehicle ShallowCopy()
+        {
+            return (Vehicle)this.MemberwiseClone();
+        }
+        
+        // Deep copy - engine will be cloned
+        public object Clone()
+        {
+            Vehicle clone = (Vehicle)this.MemberwiseClone();
+            clone.Engine = (Engine)this.Engine.Clone();
+            return clone;
+        }
+        
+        public override string ToString()
+        {
+            return $"{Make} {Model} with {Engine}, manufactured on {ManufactureDate.ToShortDateString()}";
         }
     }
-
-    public interface IBorrowable
+    
+    public class Engine : ICloneable
     {
-        DateTime? BorrowDate { get; set; }
-        DateTime? ReturnDate { get; set; }
-        bool IsAvailable { get; }
-        void Borrow();
-        void Return();
-    }
-
-    public class Book : LibraryItem, IBorrowable
-    {
-        public string Author { get; set; }
-        public int Pages { get; set; }
-        public string Genre { get; set; }
-
-        public DateTime? BorrowDate { get; set; }
-        public DateTime? ReturnDate { get; set; }
-        private bool _isAvailable = true;
-        public bool IsAvailable => _isAvailable;
-
-        public Book(int id, string title, int publicationYear, string author)
-            : base(id, title, publicationYear)
+        public string Type { get; set; }
+        public int Horsepower { get; set; }
+        public int SerialNumber { get; private set; }
+        
+        public Engine(string type, int horsepower)
         {
-            Author = author;
+            Type = type;
+            Horsepower = horsepower;
+            SerialNumber = new Random().Next(10000, 99999);
         }
-
-        public override void DisplayInfo()
+        
+        public object Clone()
         {
-            Console.WriteLine($"Book: {Title} by {Author} ({PublicationYear})");
-            Console.WriteLine($"  Genre: {Genre}, Pages: {Pages}");
-            Console.WriteLine($"  Status: {(IsAvailable ? "Available" : $"Borrowed since {BorrowDate:yyyy-MM-dd}")}");
+            // Create a new instance with a new serial number
+            return new Engine(this.Type, this.Horsepower);
         }
-
-        public override decimal CalculateLateReturnFee(int daysLate)
+        
+        public override string ToString()
         {
-            return daysLate * 0.75m;
-        }
-
-        public void Borrow()
-        {
-            if (!_isAvailable)
-            {
-                Console.WriteLine($"'{Title}' is already borrowed.");
-                return;
-            }
-            BorrowDate = DateTime.Now;
-            ReturnDate = null;
-            _isAvailable = false;
-            Console.WriteLine($"'{Title}' has been borrowed.");
-        }
-
-        public void Return()
-        {
-            if (_isAvailable)
-            {
-                Console.WriteLine($"'{Title}' is not currently borrowed.");
-                return;
-            }
-            ReturnDate = DateTime.Now;
-            _isAvailable = true;
-            Console.WriteLine($"'{Title}' has been returned.");
+            return $"{Type} engine ({Horsepower}hp), SN: {SerialNumber}";
         }
     }
-
-    public class DVD : LibraryItem, IBorrowable
+    
+    // Prototype Registry implementation
+    public class VehicleRegistry
     {
-        public string Director { get; set; }
-        public int Runtime { get; set; }
-        public string AgeRating { get; set; }
-
-        public DateTime? BorrowDate { get; set; }
-        public DateTime? ReturnDate { get; set; }
-        private bool _isAvailable = true;
-        public bool IsAvailable => _isAvailable;
-
-        public DVD(int id, string title, int publicationYear, string director)
-            : base(id, title, publicationYear)
+        private System.Collections.Generic.Dictionary<string, Vehicle> _vehicles = 
+            new System.Collections.Generic.Dictionary<string, Vehicle>();
+        
+        public VehicleRegistry()
         {
-            Director = director;
+            // Initialize with some base prototypes
+            _vehicles["EconomyCar"] = new Vehicle("Toyota", "Corolla", new Engine("Inline-4", 132));
+            _vehicles["SportsCar"] = new Vehicle("Mazda", "MX-5", new Engine("Inline-4", 181));
+            _vehicles["Luxury"] = new Vehicle("Mercedes", "S-Class", new Engine("V8", 463));
+            _vehicles["SUV"] = new Vehicle("Jeep", "Grand Cherokee", new Engine("V6", 293));
         }
-
-        public override void DisplayInfo()
+        
+        public Vehicle GetVehicle(string key)
         {
-            Console.WriteLine($"DVD: {Title} directed by {Director} ({PublicationYear})");
-            Console.WriteLine($"  Runtime: {Runtime} min, Age Rating: {AgeRating}");
-            Console.WriteLine($"  Status: {(IsAvailable ? "Available" : $"Borrowed since {BorrowDate:yyyy-MM-dd}")}");
-        }
-
-        public override decimal CalculateLateReturnFee(int daysLate)
-        {
-            return daysLate * 1.00m;
-        }
-
-        public void Borrow()
-        {
-            if (!_isAvailable)
+            if (!_vehicles.ContainsKey(key))
             {
-                Console.WriteLine($"'{Title}' is already borrowed.");
-                return;
+                throw new ArgumentException($"Prototype with key '{key}' doesn't exist.");
             }
-            BorrowDate = DateTime.Now;
-            ReturnDate = null;
-            _isAvailable = false;
-            Console.WriteLine($"'{Title}' has been borrowed.");
+            
+            // Return a clone, not the original
+            return (Vehicle)_vehicles[key].Clone();
         }
-
-        public void Return()
+        
+        public void AddVehicle(string key, Vehicle vehicle)
         {
-            if (_isAvailable)
+            _vehicles[key] = vehicle;
+        }
+        
+        public Vehicle GetShallowCopy(string key)
+        {
+            if (!_vehicles.ContainsKey(key))
             {
-                Console.WriteLine($"'{Title}' is not currently borrowed.");
-                return;
+                throw new ArgumentException($"Prototype with key '{key}' doesn't exist.");
             }
-            ReturnDate = DateTime.Now;
-            _isAvailable = true;
-            Console.WriteLine($"'{Title}' has been returned.");
+            
+            // Return a shallow copy
+            return _vehicles[key].ShallowCopy();
         }
     }
-
-    public class Magazine : LibraryItem
+    
+    class PrototypePatternDemo
     {
-        public int IssueNumber { get; set; }
-        public string Publisher { get; set; }
-
-        public Magazine(int id, string title, int publicationYear, int issueNumber)
-            : base(id, title, publicationYear)
+        static void Main(string[] args)
         {
-            IssueNumber = issueNumber;
-        }
-
-        public override void DisplayInfo()
-        {
-            Console.WriteLine($"Magazine: {Title} (Issue #{IssueNumber}, {PublicationYear})");
-            Console.WriteLine($"  Publisher: {Publisher}");
-        }
-    }
-
-    public class Library
-    {
-        private List<LibraryItem> items = new List<LibraryItem>();
-
-        public void AddItem(LibraryItem item)
-        {
-            items.Add(item);
-        }
-
-        public LibraryItem? SearchByTitle(string title)
-        {
-            foreach (var item in items)
-            {
-                if (item.Title.ContainsIgnoreCase(title))
-                    return item;
-            }
-            return null;
-        }
-
-        public void DisplayAllItems()
-        {
-            Console.WriteLine("\n===== Library Items =====");
-            foreach (var item in items)
-            {
-                item.DisplayInfo();
-                Console.WriteLine("------------------");
-            }
-        }
-
-        public ref LibraryItem GetItemReference(int id)
-        {
-            for (int i = 0; i < items.Count; i++)
-            {
-                if (items[i].Id == id)
-                    return ref items[i];
-            }
-            throw new KeyNotFoundException($"No item with Id {id} found.");
-        }
-
-        public bool UpdateItemTitle(int id, ref string newTitle)
-        {
-            var item = items.FirstOrDefault(it => it.Id == id);
-            if (item != null)
-            {
-                string oldTitle = item.Title;
-                item.Title = newTitle;
-                newTitle = oldTitle;
-                return true;
-            }
-            return false;
-        }
-    }
-
-    public record BorrowRecord(
-        int ItemId,
-        string Title,
-        DateTime BorrowDate,
-        DateTime? ReturnDate,
-        string BorrowerName)
-    {
-        public string LibraryLocation { get; init; }
-    }
-
-    public static class StringExtensions
-    {
-        public static bool ContainsIgnoreCase(this string source, string value)
-        {
-            if (source == null || value == null) return false;
-            return source.IndexOf(value, StringComparison.OrdinalIgnoreCase) >= 0;
-        }
-    }
-
-    public class LibraryItemCollection<T> where T : LibraryItem
-    {
-        private readonly List<T> _items = new List<T>();
-        public void Add(T item) => _items.Add(item);
-        public T GetItem(int index) => _items[index];
-        public int Count => _items.Count;
-    }
-
-    class Program
-    {
-        static void Main()
-        {
-            var library = new Library();
-
-            var book1 = new Book(1, "The Great Gatsby", 1925, "F. Scott Fitzgerald")
-            {
-                Genre = "Classic Fiction",
-                Pages = 180
-            };
-
-            var book2 = new Book(2, "Clean Code", 2008, "Robert C. Martin")
-            {
-                Genre = "Programming",
-                Pages = 464
-            };
-
-            var dvd1 = new DVD(3, "Inception", 2010, "Christopher Nolan")
-            {
-                Runtime = 148,
-                AgeRating = "PG-13"
-            };
-
-            var magazine1 = new Magazine(4, "National Geographic", 2023, 56)
-            {
-                Publisher = "National Geographic Partners"
-            };
-
-            library.AddItem(book1);
-            library.AddItem(book2);
-            library.AddItem(dvd1);
-            library.AddItem(magazine1);
-
-            library.DisplayAllItems();
-
-            Console.WriteLine("\n===== Borrowing Demonstration =====");
-            book1.Borrow();
-            dvd1.Borrow();
-
-            book1.Borrow();
-
-            Console.WriteLine("\n===== Updated Status =====");
-            book1.DisplayInfo();
-            dvd1.DisplayInfo();
-
-            Console.WriteLine("\n===== Return Demonstration =====");
-            book1.Return();
-
-            Console.WriteLine("\n===== Search Demonstration =====");
-            var foundItem = library.SearchByTitle("Clean");
-            if (foundItem != null)
-            {
-                Console.WriteLine("Found item:");
-                foundItem.DisplayInfo();
-            }
-            else
-            {
-                Console.WriteLine("Item not found");
-            }
-
-            // ======== ADVANCED FEATURES DEMONSTRATION ========
-            /*
-            if (ShouldRunAdvancedFeatures())
-            {
-                Console.WriteLine("\n===== ADVANCED: Boxing/Unboxing Performance =====");
-
-                var standardList = new ArrayList();
-                var genericList = new List<int>();
-                var customCollection = new LibraryItemCollection<Book>();
-
-                const int iterations = 1_000_000;
-
-                var stopwatch = Stopwatch.StartNew();
-                for (int i = 0; i < iterations; i++)
-                {
-                    standardList.Add(i);
-                }
-                int sum1 = 0;
-                foreach (int i in standardList)
-                {
-                    sum1 += i;
-                }
-                stopwatch.Stop();
-                Console.WriteLine($"ArrayList time (with boxing): {stopwatch.ElapsedMilliseconds}ms");
-
-                stopwatch.Restart();
-                for (int i = 0; i < iterations; i++)
-                {
-                    genericList.Add(i);
-                }
-                int sum2 = 0;
-                foreach (int i in genericList)
-                {
-                    sum2 += i;
-                }
-                stopwatch.Stop();
-                Console.WriteLine($"Generic List<T> time (no boxing): {stopwatch.ElapsedMilliseconds}ms");
-
-                var book3 = new Book(5, "The Hobbit", 1937, "J.R.R. Tolkien") { Pages = 310 };
-                var book4 = new Book(6, "1984", 1949, "George Orwell") { Pages = 328 };
-
-                customCollection.Add(book1);
-                customCollection.Add(book3);
-                customCollection.Add(book4);
-
-                Console.WriteLine($"Books in custom collection: {customCollection.Count}");
-
-                Console.WriteLine("\n===== ADVANCED: Pattern Matching =====");
-                var item = library.SearchByTitle("Clean");
-                string description = item switch
-                {
-                    Book b when b.Pages > 400 => $"Long book: {b.Title} with {b.Pages} pages",
-                    Book b => $"Book: {b.Title} by {b.Author}",
-                    DVD d => $"DVD: {d.Title} directed by {d.Director}",
-                    Magazine m => $"Magazine: {m.Title}, Issue #{m.IssueNumber}",
-                    null => "No item found",
-                    _ => $"Unknown type: {item.Title}"
-                };
-                Console.WriteLine(description);
-
-                Console.WriteLine("\n===== ADVANCED: Ref Returns =====");
-                try
-                {
-                    ref var itemRef = ref library.GetItemReference(1);
-                    Console.WriteLine($"Before modification: {itemRef.Title}");
-                    itemRef.Title += " (Modified)";
-                    Console.WriteLine($"After modification: {itemRef.Title}");
-
-                    string title = "New Title";
-                    if (library.UpdateItemTitle(2, ref title))
-                    {
-                        Console.WriteLine($"Updated title from '{title}' to 'New Title'");
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"Error: {ex.Message}");
-                }
-
-                Console.WriteLine("\n===== ADVANCED: Nullable Types =====");
-                Book? nullableBook = null;
-                string bookTitle = nullableBook?.Title ?? "No title available";
-                Console.WriteLine($"Nullable book title: {bookTitle}");
-                var borrowedBook = library.SearchByTitle("gatsby") as Book;
-                DateTime? dueDate = borrowedBook?.BorrowDate?.AddDays(14);
-                Console.WriteLine($"Due date: {dueDate?.ToString("yyyy-MM-dd") ?? "Not borrowed"}");
-
-                Console.WriteLine("\n===== ADVANCED: Record Type =====");
-                var borrowRecord = new BorrowRecord(
-                    1,
-                    "The Great Gatsby",
-                    DateTime.Now.AddDays(-7),
-                    null,
-                    "John Smith")
-                {
-                    LibraryLocation = "Main Branch"
-                };
-                Console.WriteLine(borrowRecord);
-
-                var returnedRecord = borrowRecord with { ReturnDate = DateTime.Now };
-                Console.WriteLine($"Original record: {borrowRecord}");
-                Console.WriteLine($"Modified record: {returnedRecord}");
-
-                string searchTerm = "code";
-                bool contains = "Clean Code".ContainsIgnoreCase(searchTerm);
-                Console.WriteLine($"Does 'Clean Code' contain '{searchTerm}'? {contains}");
-            }
-            */
-        }
-
-        static bool ShouldRunAdvancedFeatures()
-        {
-            Console.WriteLine("\nWould you like to run the advanced features? (y/n)");
-            return Console.ReadLine()?.ToLower() == "y";
+            Console.WriteLine("*** Prototype Pattern Demo ***\n");
+            
+            // Basic Car prototype example
+            Console.WriteLine("=== Car Prototype Example ===");
+            
+            // Base or Original Copy
+            Car mustang = new Mustang("Mustang EcoBoost");
+            Car bentley = new Bentley("Continental GT Mulliner");
+            
+            Console.WriteLine("Before clone, base prices:");
+            Console.WriteLine($"Car is: {mustang.ModelName}, and it's base price is Rs. {mustang.BasePrice}");
+            Console.WriteLine($"Car is: {bentley.ModelName}, and it's base price is Rs. {bentley.BasePrice}");
+            
+            // Clone the cars and modify them
+            Car clonedMustang = mustang.Clone();
+            // Working on cloned copy
+            clonedMustang.OnRoadPrice = clonedMustang.BasePrice + Car.SetAdditionalPrice();
+            Console.WriteLine($"Car is: {clonedMustang.ModelName}, and it's price is Rs. {clonedMustang.OnRoadPrice}");
+            
+            Car clonedBentley = bentley.Clone();
+            // Working on cloned copy
+            clonedBentley.OnRoadPrice = clonedBentley.BasePrice + Car.SetAdditionalPrice();
+            Console.WriteLine($"Car is: {clonedBentley.ModelName}, and it's price is Rs. {clonedBentley.OnRoadPrice}");
+            
+            // Deep vs Shallow Copy example
+            Console.WriteLine("\n=== Deep vs Shallow Copy Example ===");
+            
+            Engine v8Engine = new Engine("V8", 400);
+            Vehicle originalCar = new Vehicle("Ford", "Mustang", v8Engine);
+            Console.WriteLine($"Original vehicle: {originalCar}");
+            
+            // Shallow copy - shares the Engine reference
+            Vehicle shallowCopyCar = originalCar.ShallowCopy();
+            
+            // Deep copy - clones the Engine too
+            Vehicle deepCopyCar = (Vehicle)originalCar.Clone();
+            
+            // Modify the original engine
+            originalCar.Engine.Horsepower = 450;
+            
+            Console.WriteLine("\nAfter modifying original engine horsepower to 450:");
+            Console.WriteLine($"Original car: {originalCar}");
+            Console.WriteLine($"Shallow copy: {shallowCopyCar}");  // Will reflect engine changes
+            Console.WriteLine($"Deep copy: {deepCopyCar}");        // Won't reflect engine changes
+            
+            // Prototype Registry example
+            Console.WriteLine("\n=== Prototype Registry Example ===");
+            
+            VehicleRegistry registry = new VehicleRegistry();
+            
+            // Get vehicles from registry (which creates clones)
+            Vehicle economyCar = registry.GetVehicle("EconomyCar");
+            Vehicle sportsCar = registry.GetVehicle("SportsCar");
+            Vehicle luxuryCar = registry.GetVehicle("Luxury");
+            
+            Console.WriteLine("Vehicles from registry:");
+            Console.WriteLine($"Economy: {economyCar}");
+            Console.WriteLine($"Sports: {sportsCar}");
+            Console.WriteLine($"Luxury: {luxuryCar}");
+            
+            // Adding a custom prototype
+            Engine electricEngine = new Engine("Electric", 300);
+            Vehicle electricCar = new Vehicle("Tesla", "Model 3", electricEngine);
+            registry.AddVehicle("Electric", electricCar);
+            
+            // Get a clone of the new prototype
+            Vehicle clonedElectricCar = registry.GetVehicle("Electric");
+            Console.WriteLine($"\nCloned electric car: {clonedElectricCar}");
+            
+            // Demonstrate customizing a cloned prototype
+            clonedElectricCar.Model = "Model Y";
+            clonedElectricCar.Engine.Horsepower = 350;
+            Console.WriteLine($"Customized electric car: {clonedElectricCar}");
+            
+            // Get another clone from registry (original prototype unchanged)
+            Vehicle anotherElectricCar = registry.GetVehicle("Electric");
+            Console.WriteLine($"Another electric car: {anotherElectricCar}");
+            
+            Console.ReadLine();
         }
     }
 }
