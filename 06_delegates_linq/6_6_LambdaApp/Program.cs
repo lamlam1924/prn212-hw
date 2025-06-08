@@ -369,7 +369,7 @@ namespace Lambda
                 Console.WriteLine($"  {student.Name}: {student.Average:F1}% avg, Range: {student.Range}, {consistencyText}");
             }
             Console.WriteLine();
-
+            
             // Demonstrating complex lambda with nested operations
             var gradeDistribution = students
                 .SelectMany(s => s.Grades.Select(grade => new { s.Name, Grade = grade }))

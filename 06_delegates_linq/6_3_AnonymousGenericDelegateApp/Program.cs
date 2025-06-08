@@ -49,6 +49,8 @@ namespace AnonymousGenericDelegate
             Console.WriteLine("3. Different anonymous method operations:");
             
             Calculator multiply = delegate(int x, int y) { return x * y; };
+            static int multiply(int x, int y) { return x * y; }
+            // Named method for comparison
             Calculator subtract = delegate(int x, int y) { return x - y; };
             Calculator divide = delegate(int x, int y) 
             { 
